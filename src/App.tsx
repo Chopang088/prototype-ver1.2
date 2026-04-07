@@ -42,6 +42,8 @@ import { twMerge } from 'tailwind-merge';
 import { ASSIGNMENTS_DEFAULT, COURSES, CAL_EVENTS, UNIVERSITY_DB } from './data';
 import { Assignment, Course, User } from './types';
 
+import { handleMockApi } from '../lib/mockApiHandler';
+
 // Utility for tailwind classes
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -1010,8 +1012,21 @@ function CourseDetailView({ course, assignments, onAssign }: any) {
 }
 
 function AIChatView({ user, assignments }: any) {
-  const [messages, setMessages] = useState<any[]>([]);
+  const [messages, setMessages] = useState<any[]>([{role: 'assistant', content: "สวัสดีครับ มีอะไรให้ช่วยไหม?"}]);
   const [input, setInput] = useState('');
+  const handleSend = () => {
+  const userMessage = inputValue; // หรือ state ที่คุณใช้เก็บ input
+  const botReply = handleMockApi(userMessage);
+  
+  // เพิ่ม reply เข้า messages state ของคุณ เช่น:
+  setMessages(prev => [
+    ...prev,
+    { role: 'user', content: userMessage },
+    { role: 'assistant', content: botReply }
+  ]);
+  
+  setInputValue(''); // clear input
+};
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
