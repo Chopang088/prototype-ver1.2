@@ -42,8 +42,6 @@ import { twMerge } from 'tailwind-merge';
 import { ASSIGNMENTS_DEFAULT, COURSES, CAL_EVENTS, UNIVERSITY_DB } from './data';
 import { Assignment, Course, User } from './types';
 
-import { handleMockApi } from '../lib/mockApiHandler';
-
 // Utility for tailwind classes
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -87,8 +85,9 @@ export default function App() {
     if (student && student.password === pass) {
       setUser(student);
       setCurrentPage('dashboard');
+      setToast(null);
     } else {
-      setToast({ message: 'Invalid Student ID or Password', type: 'error' });
+      showToast('Invalid Student ID or Password', 'error');
     }
   };
 
@@ -1011,27 +1010,52 @@ function CourseDetailView({ course, assignments, onAssign }: any) {
   );
 }
 
-function AIChatView({ user, assignments }: any) {
-  const [messages, setMessages] = useState<any[]>([{role: 'assistant', content: "สวัสดีครับ มีอะไรให้ช่วยไหม?"}]);
-  const [input, setInput] = useState('');
-  const onSendMeassage = () => {
-  console.log("Button Clicked!"); // ใส่ไว้เช็คใน Console ว่าฟังก์ชันทำงานไหม
-  if (!inputValue.trim()) return;
+import { aiService } from './services/aiService';
 
-  const userMessage = input;
-  const botReply = handleMockApi(userMessage);
-  
-  setMessages(prev => [
-    ...prev,
-    { role: 'user', content: userMessage },
-    { role: 'assistant', content: botReply }
-  ]);
-  
-  setInputValue('');
-};
-  
+function AIChatView({ user, assignments }: any) {
+  const [messages, setMessages] = useState<any[]>([]);
+  const [input, setInput] = useState('');
+  const [loading, setLoading] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+  }, [messages]);
+
+  const handleSend = async () => {
+    if (!input.trim() || loading) return;
+    const userMsg = { role: 'user', content: input };
+    setMessages(prev => [...prev, userMsg]);
+    setInput('');
+    setLoading(true);
+    
+    try {
+      const response = await aiService.sendMessage(input, { user, assignments, courses: COURSES });
+      const botMsg = { role: 'bot', content: response };
+      setMessages(prev => [...prev, botMsg]);
+    } catch (error) {
+      console.error("AI Chat Error:", error);
+      setMessages(prev => [...prev, { role: 'bot', content: "I'm sorry, I encountered an error. Please try again." }]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="flex flex-col h-[calc(100vh-12rem)]">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <div className="w-2 h-2 rounded-full bg-success animate-pulse" />
+          <span className="text-[10px] font-bold text-text-muted uppercase tracking-wider">AI Assistant Online</span>
+        </div>
+        <div className={cn(
+          "px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-tighter",
+          aiService.inMockMode ? "bg-warning/10 text-warning border border-warning/20" : "bg-primary/10 text-primary border border-primary/20"
+        )}>
+          {aiService.inMockMode ? "Mock Mode (Free)" : "Gemini AI (Real)"}
+        </div>
+      </div>
+
       <div ref={scrollRef} className="flex-1 overflow-y-auto space-y-4 pb-4 scrollbar-hide">
         {messages.length === 0 ? (
           <div className="text-center py-12">
@@ -1040,20 +1064,44 @@ function AIChatView({ user, assignments }: any) {
             </div>
             <h3 className="text-lg font-display font-bold">StudyFlow AI</h3>
             <p className="text-sm text-text-muted mt-2">Ask me about your assignments, courses, or study tips!</p>
+            <div className="mt-6 flex flex-wrap justify-center gap-2">
+              {["What's my next deadline?", "How many credits am I taking?", "Give me a study tip"].map(q => (
+                <button 
+                  key={q}
+                  onClick={() => setInput(q)}
+                  className="px-4 py-2 bg-white border border-border rounded-full text-xs font-medium hover:border-primary hover:text-primary transition-colors"
+                >
+                  {q}
+                </button>
+              ))}
+            </div>
           </div>
         ) : (
-          messages.map((m, i) => (
-            <div key={i} className={cn("flex gap-3", m.role === 'user' ? "flex-row-reverse" : "flex-row")}>
-              <div className={cn("w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0", m.role === 'user' ? "bg-primary text-white" : "bg-accent text-white")}>
-                {m.role === 'user' ? <UserIcon size={16} /> : <Sparkles size={16} />}
+          <>
+            {messages.map((m, i) => (
+              <div key={i} className={cn("flex gap-3", m.role === 'user' ? "flex-row-reverse" : "flex-row")}>
+                <div className={cn("w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0", m.role === 'user' ? "bg-primary text-white" : "bg-accent text-white")}>
+                  {m.role === 'user' ? <UserIcon size={16} /> : <Sparkles size={16} />}
+                </div>
+                <div className={cn("max-w-[80%] p-4 rounded-2xl text-sm leading-relaxed", m.role === 'user' ? "bg-primary text-white rounded-tr-none" : "bg-white shadow-sm border border-border rounded-tl-none")}>
+                  {m.content}
+                </div>
               </div>
-              <div className={cn("max-w-[80%] p-4 rounded-2xl text-sm leading-relaxed", m.role === 'user' ? "bg-primary text-white rounded-tr-none" : "bg-white shadow-sm border border-border rounded-tl-none")}>
-                {m.content}
+            ))}
+            {loading && (
+              <div className="flex gap-3">
+                <div className="w-8 h-8 rounded-full bg-accent text-white flex items-center justify-center flex-shrink-0">
+                  <Sparkles size={16} className="animate-spin" />
+                </div>
+                <div className="bg-white shadow-sm border border-border rounded-2xl rounded-tl-none p-4 flex gap-1 items-center">
+                  <div className="w-1.5 h-1.5 bg-text-light rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                  <div className="w-1.5 h-1.5 bg-text-light rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                  <div className="w-1.5 h-1.5 bg-text-light rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                </div>
               </div>
-            </div>
-          ))
+            )}
+          </>
         )}
-        <div ref={scrollRef} /> {/* จุดสำหรับ scroll */}
       </div>
 
       <div className="mt-4 flex gap-2">
@@ -1064,10 +1112,12 @@ function AIChatView({ user, assignments }: any) {
           value={input}
           onChange={e => setInput(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
+          disabled={loading}
         />
         <button 
-          className="w-12 h-12 bg-primary text-white rounded-full flex items-center justify-center shadow-lg active:scale-95 transition-transform"
-          onClick={onSendMeassage}
+          className="w-12 h-12 bg-primary text-white rounded-full flex items-center justify-center shadow-lg active:scale-95 transition-transform disabled:opacity-50"
+          onClick={handleSend}
+          disabled={loading || !input.trim()}
         >
           <Send size={20} />
         </button>
