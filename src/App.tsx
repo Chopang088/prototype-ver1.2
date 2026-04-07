@@ -1033,18 +1033,6 @@ function AIChatView({ user, assignments }: any) {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [messages]);
 
-  const handleSend = () => {
-    if (!input.trim()) return;
-    const userMsg = { role: 'user', content: input };
-    setMessages(prev => [...prev, userMsg]);
-    setInput('');
-    
-    // Mock AI response
-    setTimeout(() => {
-      const botMsg = { role: 'bot', content: `I'm your StudyFlow assistant. I see you have ${Object.values(assignments).filter((a: any) => a.status === 'open').length} pending assignments. How can I help you with your studies today?` };
-      setMessages(prev => [...prev, botMsg]);
-    }, 1000);
-  };
 
   return (
     <div className="flex flex-col h-[calc(100vh-12rem)]">
