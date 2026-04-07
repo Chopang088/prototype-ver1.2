@@ -40,7 +40,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { ASSIGNMENTS_DEFAULT, COURSES, CAL_EVENTS, UNIVERSITY_DB } from './data';
-import { Assignment, Course, User } from './types';
+import { Assignment, Course, User, CalEvent } from './types';
 
 // Utility for tailwind classes
 function cn(...inputs: ClassValue[]) {
@@ -66,6 +66,7 @@ export default function App() {
   const [backPage, setBackPage] = useState<string>('dashboard');
   const [user, setUser] = useState<User | null>(null);
   const [assignments, setAssignments] = useState<Record<string, Assignment>>(ASSIGNMENTS_DEFAULT);
+  const [calEvents, setCalEvents] = useState<Record<string, CalEvent[]>>(CAL_EVENTS);
   const [currentAssignId, setCurrentAssignId] = useState<string>('a1');
   const [currentCourseId, setCurrentCourseId] = useState<string>('cs301');
   const [calMonth, setCalMonth] = useState(1); // February (0-indexed is 1 here for simplicity with data)
@@ -154,6 +155,14 @@ export default function App() {
     };
 
     setAssignments(prev => ({ ...prev, [newId]: newAssign }));
+    
+    // Add to Calendar
+    const calKey = `${dueDate.getFullYear()}-${dueDate.getMonth()}-${dueDate.getDate()}`;
+    setCalEvents(prev => ({
+      ...prev,
+      [calKey]: [...(prev[calKey] || []), { name: `${qaTitle} Due`, type: 'assign', aid: newId }]
+    }));
+
     setQuickAddSuccess(true);
     setQaTitle('');
     setTimeout(() => {
@@ -187,7 +196,7 @@ export default function App() {
             <main className="max-w-xl mx-auto px-4 pt-20">
               {currentPage === 'dashboard' && <DashboardView assignments={assignments} onAssign={gotoAssign} onQuickAdd={() => toggleModal('quickadd', true)} />}
               {currentPage === 'courses' && <CoursesView assignments={assignments} onCourse={(id) => { setCurrentCourseId(id); setCurrentPage('course-detail'); }} />}
-              {currentPage === 'calendar' && <CalendarView calMonth={calMonth} calYear={calYear} setCalMonth={setCalMonth} setCalYear={setCalYear} onAssign={gotoAssign} onCourse={(id) => { setCurrentCourseId(id); setCurrentPage('course-detail'); }} />}
+              {currentPage === 'calendar' && <CalendarView calMonth={calMonth} calYear={calYear} setCalMonth={setCalMonth} setCalYear={setCalYear} onAssign={gotoAssign} onCourse={(id) => { setCurrentCourseId(id); setCurrentPage('course-detail'); }} calEvents={calEvents} />}
               {currentPage === 'submitted' && <SubmittedView assignments={assignments} onAssign={gotoAssign} />}
               {currentPage === 'profile' && <ProfileView user={user} assignments={assignments} onLogout={() => toggleModal('logout', true)} onPage={gotoPage} />}
               {currentPage === 'assign-detail' && (
@@ -597,7 +606,7 @@ function CoursesView({ assignments, onCourse }: { assignments: Record<string, As
   );
 }
 
-function CalendarView({ calMonth, calYear, setCalMonth, setCalYear, onAssign, onCourse }: any) {
+function CalendarView({ calMonth, calYear, setCalMonth, setCalYear, onAssign, onCourse, calEvents }: any) {
   const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
   const SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   const TODAY = new Date(2026, 1, 19);
@@ -623,7 +632,7 @@ function CalendarView({ calMonth, calYear, setCalMonth, setCalYear, onAssign, on
   // Current month
   for (let d = 1; d <= daysInMonth; d++) {
     const k = `${calYear}-${calMonth}-${d}`;
-    const ev = CAL_EVENTS[k] || [];
+    const ev = calEvents[k] || [];
     const isToday = d === TODAY.getDate() && calMonth === TODAY.getMonth() && calYear === TODAY.getFullYear();
     
     days.push(
@@ -673,7 +682,7 @@ function CalendarView({ calMonth, calYear, setCalMonth, setCalYear, onAssign, on
           {Array.from({ length: daysInMonth }).map((_, i) => {
             const d = i + 1;
             const k = `${calYear}-${calMonth}-${d}`;
-            const evs = CAL_EVENTS[k] || [];
+            const evs = calEvents[k] || [];
             return evs.map((e, idx) => (
               <div 
                 key={`${k}-${idx}`} 
