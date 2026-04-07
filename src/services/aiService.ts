@@ -131,7 +131,7 @@ Total Score = 100%`;
 
     // 2 & 4. Database Knowledge Base + Context Awareness
     const isDatabaseQuery = msg.includes('database') || msg.includes('db');
-    const isStudyQuery = msg.includes('study') || msg.includes('trip') || msg.includes('plan') || msg.includes('technique');
+    const isStudyQuery = msg.includes('study') || msg.includes('trip') || msg.includes('plan') || msg.includes('technique') || msg.includes('studytrip');
 
     if (isDatabaseQuery && isStudyQuery) {
       return `For studying **Database Principles**, I recommend combining core concepts with the **Pomodoro Technique**:
