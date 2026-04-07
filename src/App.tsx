@@ -1014,27 +1014,22 @@ function CourseDetailView({ course, assignments, onAssign }: any) {
 function AIChatView({ user, assignments }: any) {
   const [messages, setMessages] = useState<any[]>([{role: 'assistant', content: "สวัสดีครับ มีอะไรให้ช่วยไหม?"}]);
   const [input, setInput] = useState('');
-  const handleSend = () => {
+  const onSendMeassage = () => {
   console.log("Button Clicked!"); // ใส่ไว้เช็คใน Console ว่าฟังก์ชันทำงานไหม
   if (!inputValue.trim()) return;
 
-  const botReply = handleMockApi(inputValue);
+  const userMessage = input;
+  const botReply = handleMockApi(userMessage);
   
   setMessages(prev => [
     ...prev,
-    { role: 'user', content: inputValue },
+    { role: 'user', content: userMessage },
     { role: 'assistant', content: botReply }
   ]);
   
   setInputValue('');
 };
-  const scrollRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-  }, [messages]);
-
-
+  
   return (
     <div className="flex flex-col h-[calc(100vh-12rem)]">
       <div ref={scrollRef} className="flex-1 overflow-y-auto space-y-4 pb-4 scrollbar-hide">
@@ -1058,6 +1053,7 @@ function AIChatView({ user, assignments }: any) {
             </div>
           ))
         )}
+        <div ref={scrollRef} /> {/* จุดสำหรับ scroll */}
       </div>
 
       <div className="mt-4 flex gap-2">
@@ -1071,7 +1067,7 @@ function AIChatView({ user, assignments }: any) {
         />
         <button 
           className="w-12 h-12 bg-primary text-white rounded-full flex items-center justify-center shadow-lg active:scale-95 transition-transform"
-          onClick={handleSend}
+          onClick={onSendMeassage}
         >
           <Send size={20} />
         </button>
