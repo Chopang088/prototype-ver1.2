@@ -1015,17 +1015,18 @@ function AIChatView({ user, assignments }: any) {
   const [messages, setMessages] = useState<any[]>([{role: 'assistant', content: "สวัสดีครับ มีอะไรให้ช่วยไหม?"}]);
   const [input, setInput] = useState('');
   const handleSend = () => {
-  const userMessage = inputValue; // หรือ state ที่คุณใช้เก็บ input
-  const botReply = handleMockApi(userMessage);
+  console.log("Button Clicked!"); // ใส่ไว้เช็คใน Console ว่าฟังก์ชันทำงานไหม
+  if (!inputValue.trim()) return;
+
+  const botReply = handleMockApi(inputValue);
   
-  // เพิ่ม reply เข้า messages state ของคุณ เช่น:
   setMessages(prev => [
     ...prev,
-    { role: 'user', content: userMessage },
+    { role: 'user', content: inputValue },
     { role: 'assistant', content: botReply }
   ]);
   
-  setInputValue(''); // clear input
+  setInputValue('');
 };
   const scrollRef = useRef<HTMLDivElement>(null);
 
