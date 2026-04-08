@@ -194,7 +194,7 @@ export default function App() {
             />
             
             <main className="max-w-xl mx-auto px-4 pt-20">
-              {currentPage === 'dashboard' && <DashboardView assignments={assignments} onAssign={gotoAssign} onQuickAdd={() => toggleModal('quickadd', true)} />}
+              {currentPage === 'dashboard' && <DashboardView assignments={assignments} courses={COURSES} onAssign={gotoAssign} onQuickAdd={() => toggleModal('quickadd', true)} />}
               {currentPage === 'courses' && <CoursesView assignments={assignments} onCourse={(id) => { setCurrentCourseId(id); setCurrentPage('course-detail'); }} />}
               {currentPage === 'calendar' && <CalendarView calMonth={calMonth} calYear={calYear} setCalMonth={setCalMonth} setCalYear={setCalYear} onAssign={gotoAssign} onCourse={(id) => { setCurrentCourseId(id); setCurrentPage('course-detail'); }} calEvents={calEvents} />}
               {currentPage === 'submitted' && <SubmittedView assignments={assignments} onAssign={gotoAssign} />}
@@ -495,11 +495,17 @@ function BottomNav({ active, onNavigate }: { active: string; onNavigate: (id: an
   );
 }
 
-function DashboardView({ assignments, onAssign, onQuickAdd }: { assignments: Record<string, Assignment>; onAssign: (id: string) => void; onQuickAdd: () => void }) {
+function DashboardView({ assignments, courses, onAssign, onQuickAdd }: { assignments: Record<string, Assignment>; courses: Record<string, Course>; onAssign: (id: string) => void; onQuickAdd: () => void }) {
   const TODAY = new Date(2026, 1, 19);
   const openAssigns = Object.values(assignments)
     .filter(a => a.status === 'open')
     .sort((a, b) => a.dueDate.getTime() - b.dueDate.getTime());
+
+  // Get upcoming exams
+  const exams = Object.values(courses).flatMap(c => [
+    { name: `${c.code} Midterm`, date: c.midterm, type: 'Midterm', color: 'bg-info' },
+    { name: `${c.code} Final`, date: c.final, type: 'Final', color: 'bg-info' }
+  ]).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
   return (
     <div className="space-y-6">
@@ -534,6 +540,11 @@ function DashboardView({ assignments, onAssign, onQuickAdd }: { assignments: Rec
             <p className="text-2xl font-display font-bold">12 <span className="text-sm font-normal">days</span></p>
             <p className="text-[11px] mt-2 opacity-90 line-clamp-1">CS301 Midterm</p>
           </div>
+          <div className="flex-shrink-0 w-40 bg-info text-white p-4 rounded-2xl">
+            <p className="text-[10px] font-bold uppercase opacity-70 mb-1">Final Exam</p>
+            <p className="text-2xl font-display font-bold">45 <span className="text-sm font-normal">days</span></p>
+            <p className="text-[11px] mt-2 opacity-90 line-clamp-1">CS301 Final</p>
+          </div>
         </div>
       </section>
 
@@ -559,6 +570,29 @@ function DashboardView({ assignments, onAssign, onQuickAdd }: { assignments: Rec
               </div>
             );
           })}
+        </div>
+      </section>
+
+      <section>
+        <h3 className="text-sm font-display font-bold mb-3 flex items-center gap-2"><GraduationCap size={18} className="text-primary" /> Upcoming Exams</h3>
+        <div className="bg-white rounded-2xl p-4 shadow-sm space-y-4">
+          {exams.slice(0, 4).map((e, i) => (
+            <div 
+              key={`${e.name}-${i}`} 
+              className={cn("flex items-center gap-3", i < 3 && "border-b border-border pb-4")}
+            >
+              <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center text-white", e.color)}>
+                <CalendarIcon size={20} />
+              </div>
+              <div className="flex-1 min-width-0">
+                <p className="font-semibold text-sm line-clamp-1">{e.name}</p>
+                <p className="text-[11px] text-text-muted">{e.date}</p>
+              </div>
+              <div className={cn("text-[10px] font-bold px-2 py-1 rounded-full bg-info/10 text-info")}>
+                {e.type}
+              </div>
+            </div>
+          ))}
         </div>
       </section>
     </div>
