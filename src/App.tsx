@@ -498,13 +498,18 @@ function BottomNav({ active, onNavigate }: { active: string; onNavigate: (id: an
 function DashboardView({ assignments, courses, onAssign, onQuickAdd }: { assignments: Record<string, Assignment>; courses: Record<string, Course>; onAssign: (id: string) => void; onQuickAdd: () => void }) {
   const TODAY = new Date(2026, 1, 19);
   const openAssigns = Object.values(assignments)
-    .filter(a => a.status === 'open')
+    .filter(a => {
+      if (a.status !== 'open') return false;
+      const diffTime = a.dueDate.getTime() - TODAY.getTime();
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      return diffDays >= 0 && diffDays <= 10;
+    })
     .sort((a, b) => a.dueDate.getTime() - b.dueDate.getTime());
 
   // Get upcoming exams
   const exams = Object.values(courses).flatMap(c => [
     { name: `${c.code} Midterm`, date: c.midterm, type: 'Midterm', color: 'bg-info' },
-    { name: `${c.code} Final`, date: c.final, type: 'Final', color: 'bg-info' }
+    { name: `${c.code} Final`, date: c.final, type: 'Final', color: 'bg-danger' }
   ]).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
   return (
@@ -540,7 +545,7 @@ function DashboardView({ assignments, courses, onAssign, onQuickAdd }: { assignm
             <p className="text-2xl font-display font-bold">12 <span className="text-sm font-normal">days</span></p>
             <p className="text-[11px] mt-2 opacity-90 line-clamp-1">CS301 Midterm</p>
           </div>
-          <div className="flex-shrink-0 w-40 bg-info text-white p-4 rounded-2xl">
+          <div className="flex-shrink-0 w-40 bg-danger text-white p-4 rounded-2xl">
             <p className="text-[10px] font-bold uppercase opacity-70 mb-1">Final Exam</p>
             <p className="text-2xl font-display font-bold">45 <span className="text-sm font-normal">days</span></p>
             <p className="text-[11px] mt-2 opacity-90 line-clamp-1">CS301 Final</p>
@@ -588,7 +593,7 @@ function DashboardView({ assignments, courses, onAssign, onQuickAdd }: { assignm
                 <p className="font-semibold text-sm line-clamp-1">{e.name}</p>
                 <p className="text-[11px] text-text-muted">{e.date}</p>
               </div>
-              <div className={cn("text-[10px] font-bold px-2 py-1 rounded-full bg-info/10 text-info")}>
+              <div className={cn("text-[10px] font-bold px-2 py-1 rounded-full", e.type === 'Midterm' ? "bg-info/10 text-info" : "bg-danger/10 text-danger")}>
                 {e.type}
               </div>
             </div>
@@ -680,8 +685,8 @@ function CalendarView({ calMonth, calYear, setCalMonth, setCalYear, onAssign, on
         {d}
         <div className="flex gap-0.5 absolute bottom-1.5">
           {ev.some(e => e.type === 'assign') && <div className="w-1 h-1 rounded-full bg-warning" />}
-          {ev.some(e => e.type === 'midterm') && <div className="w-1 h-1 rounded-full bg-danger" />}
-          {ev.some(e => e.type === 'exam') && <div className="w-1 h-1 rounded-full bg-info" />}
+          {ev.some(e => e.type === 'midterm') && <div className="w-1 h-1 rounded-full bg-info" />}
+          {ev.some(e => e.type === 'exam') && <div className="w-1 h-1 rounded-full bg-danger" />}
         </div>
       </div>
     );
@@ -706,8 +711,8 @@ function CalendarView({ calMonth, calYear, setCalMonth, setCalYear, onAssign, on
 
       <div className="flex gap-4 flex-wrap">
         <div className="flex items-center gap-2 text-[11px] font-bold text-text-muted"><div className="w-2.5 h-2.5 rounded-full bg-warning" /> Assignment</div>
-        <div className="flex items-center gap-2 text-[11px] font-bold text-text-muted"><div className="w-2.5 h-2.5 rounded-full bg-danger" /> Midterm</div>
-        <div className="flex items-center gap-2 text-[11px] font-bold text-text-muted"><div className="w-2.5 h-2.5 rounded-full bg-info" /> Final Exam</div>
+        <div className="flex items-center gap-2 text-[11px] font-bold text-text-muted"><div className="w-2.5 h-2.5 rounded-full bg-info" /> Midterm</div>
+        <div className="flex items-center gap-2 text-[11px] font-bold text-text-muted"><div className="w-2.5 h-2.5 rounded-full bg-danger" /> Final Exam</div>
       </div>
 
       <section>
@@ -723,7 +728,7 @@ function CalendarView({ calMonth, calYear, setCalMonth, setCalYear, onAssign, on
                 className="flex items-center gap-3 cursor-pointer group"
                 onClick={() => e.aid ? onAssign(e.aid) : e.cid ? onCourse(e.cid) : null}
               >
-                <div className={cn("w-3 h-3 rounded flex-shrink-0", e.type === 'midterm' ? 'bg-danger' : e.type === 'exam' ? 'bg-info' : 'bg-warning')} />
+                <div className={cn("w-3 h-3 rounded flex-shrink-0", e.type === 'midterm' ? 'bg-info' : e.type === 'exam' ? 'bg-danger' : 'bg-warning')} />
                 <div className="flex-1">
                   <p className="text-sm font-semibold group-hover:text-primary transition-colors">{e.name}</p>
                   <p className="text-[11px] text-text-muted">{SHORT[calMonth]} {d}, {calYear}</p>
@@ -971,7 +976,7 @@ function AssignDetailView({ assignment, onFileSelect, selFile, onSubmit, lastSub
 
 function CourseDetailView({ course, assignments, onAssign }: any) {
   const [tab, setTab] = useState('assignments');
-  const courseAssigns = course.assignments.map((id: string) => assignments[id]);
+  const courseAssigns = Object.values(assignments).filter((a: any) => a.course === course.code);
 
   return (
     <div className="space-y-6">
@@ -981,7 +986,7 @@ function CourseDetailView({ course, assignments, onAssign }: any) {
         <h2 className="text-2xl font-display font-bold mt-1">{course.name}</h2>
         <p className="text-sm opacity-80 mt-2">{course.schedule} · {course.room}</p>
         <div className="flex gap-6 mt-6 pt-6 border-t border-white/20">
-          <div><p className="text-xl font-display font-bold">{course.assignments.length}</p><p className="text-[10px] opacity-60 uppercase font-bold">Assignments</p></div>
+          <div><p className="text-xl font-display font-bold">{courseAssigns.length}</p><p className="text-[10px] opacity-60 uppercase font-bold">Assignments</p></div>
           <div><p className="text-xl font-display font-bold">{course.credits}</p><p className="text-[10px] opacity-60 uppercase font-bold">Credits</p></div>
           <div><p className="text-xl font-display font-bold">{course.room}</p><p className="text-[10px] opacity-60 uppercase font-bold">Room</p></div>
         </div>
@@ -1059,21 +1064,23 @@ function AIChatView({ user, assignments }: any) {
   const [messages, setMessages] = useState<any[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [chatMode, setChatMode] = useState<'assignment' | 'study' | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [messages]);
 
-  const handleSend = async () => {
-    if (!input.trim() || loading) return;
-    const userMsg = { role: 'user', content: input };
+  const handleSend = async (overrideMsg?: string) => {
+    const textToSend = overrideMsg || input;
+    if (!textToSend.trim() || loading) return;
+    const userMsg = { role: 'user', content: textToSend };
     setMessages(prev => [...prev, userMsg]);
     setInput('');
     setLoading(true);
     
     try {
-      const response = await aiService.sendMessage(input, { user, assignments, courses: COURSES });
+      const response = await aiService.sendMessage(textToSend, { user, assignments, courses: COURSES });
       const botMsg = { role: 'bot', content: response };
       setMessages(prev => [...prev, botMsg]);
     } catch (error) {
@@ -1101,23 +1108,61 @@ function AIChatView({ user, assignments }: any) {
 
       <div ref={scrollRef} className="flex-1 overflow-y-auto space-y-4 pb-4 scrollbar-hide">
         {messages.length === 0 ? (
-          <div className="text-center py-12">
+          <div className="text-center py-8">
             <div className="w-16 h-16 bg-primary-pale text-primary rounded-full flex items-center justify-center mx-auto mb-4">
               <Sparkles size={32} />
             </div>
             <h3 className="text-lg font-display font-bold">StudyFlow AI</h3>
-            <p className="text-sm text-text-muted mt-2">Ask me about your assignments, courses, or study tips!</p>
-            <div className="mt-6 flex flex-wrap justify-center gap-2">
-              {["What's my next deadline?", "How many credits am I taking?", "Give me a study tip"].map(q => (
+            <p className="text-sm text-text-muted mt-2 mb-6 px-4">Hello! I'm your academic assistant. To get started, please choose a mode:</p>
+            
+            {!chatMode ? (
+              <div className="grid grid-cols-2 gap-3 px-4">
                 <button 
-                  key={q}
-                  onClick={() => setInput(q)}
-                  className="px-4 py-2 bg-white border border-border rounded-full text-xs font-medium hover:border-primary hover:text-primary transition-colors"
+                  onClick={() => setChatMode('assignment')}
+                  className="flex flex-col items-center gap-3 p-6 bg-white border-2 border-border rounded-2xl hover:border-primary hover:bg-primary-pale transition-all group"
                 >
-                  {q}
+                  <div className="w-12 h-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <ClipboardList size={24} />
+                  </div>
+                  <span className="font-bold text-sm">Assignment</span>
                 </button>
-              ))}
-            </div>
+                <button 
+                  onClick={() => setChatMode('study')}
+                  className="flex flex-col items-center gap-3 p-6 bg-white border-2 border-border rounded-2xl hover:border-primary hover:bg-primary-pale transition-all group"
+                >
+                  <div className="w-12 h-12 rounded-xl bg-accent/10 text-accent flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <BookOpen size={24} />
+                  </div>
+                  <span className="font-bold text-sm">Study</span>
+                </button>
+              </div>
+            ) : (
+              <div className="px-4 space-y-4">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-bold text-text-muted uppercase tracking-widest flex items-center gap-2">
+                    {chatMode === 'assignment' ? <ClipboardList size={14} className="text-primary" /> : <BookOpen size={14} className="text-accent" />}
+                    Selected Mode: {chatMode}
+                  </p>
+                  <button onClick={() => setChatMode(null)} className="text-[10px] font-bold text-primary hover:underline">Change Mode</button>
+                </div>
+                
+                <div className="flex flex-col gap-2">
+                  {(chatMode === 'assignment' 
+                    ? ["what is my next deadline", "Help me plan my week", "how many assignments are left in subject"]
+                    : ["study tip", "calculate estimated grade( based on score the student provide)", "summarize"]
+                  ).map(q => (
+                    <button 
+                      key={q}
+                      onClick={() => handleSend(q)}
+                      className="w-full px-4 py-3 bg-white border border-border rounded-xl text-left text-sm font-medium hover:border-primary group flex items-center justify-between transition-all"
+                    >
+                      <span className="group-hover:text-primary">{q}</span>
+                      <ChevronRight size={16} className="text-text-light group-hover:text-primary transition-colors" />
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         ) : (
           <>
