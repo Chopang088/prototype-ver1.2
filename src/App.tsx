@@ -182,22 +182,26 @@ export default function App() {
               title={currentPage === 'dashboard' ? 'StudyFlow' : currentPage.charAt(0).toUpperCase() + currentPage.slice(1)} 
               user={user} 
               onProfile={() => gotoPage('profile')}
-              onBack={currentPage === 'assign-detail' || currentPage === 'course-detail' ? () => {
+              onBack={currentPage === 'assign-detail' || currentPage === 'course-detail' || currentPage === 'submitted' ? () => {
                 if (currentPage === 'assign-detail') {
-                  if (backPage === 'course') setCurrentPage('course-detail');
-                  else setCurrentPage(backPage as any);
+                  if (backPage === 'course' || backPage === 'course-detail') setCurrentPage('course-detail');
+                  else if (backPage === 'calendar') setCurrentPage('calendar');
+                  else if (backPage === 'submitted') setCurrentPage('submitted');
+                  else setCurrentPage('dashboard');
+                } else if (currentPage === 'submitted') {
+                  setCurrentPage('profile');
                 } else {
                   setCurrentPage('courses');
                 }
               } : undefined}
-              backLabel={currentPage === 'assign-detail' ? (backPage === 'course' ? 'Course' : 'Home') : 'Courses'}
+              backLabel={currentPage === 'assign-detail' ? (backPage === 'course' || backPage === 'course-detail' ? 'Course' : backPage === 'calendar' ? 'Calendar' : backPage === 'submitted' ? 'Submitted' : 'Home') : currentPage === 'submitted' ? 'Profile' : 'Courses'}
             />
             
             <main className="max-w-xl mx-auto px-4 pt-20">
               {currentPage === 'dashboard' && <DashboardView assignments={assignments} courses={COURSES} onAssign={gotoAssign} onQuickAdd={() => toggleModal('quickadd', true)} />}
               {currentPage === 'courses' && <CoursesView assignments={assignments} onCourse={(id) => { setCurrentCourseId(id); setCurrentPage('course-detail'); }} />}
-              {currentPage === 'calendar' && <CalendarView calMonth={calMonth} calYear={calYear} setCalMonth={setCalMonth} setCalYear={setCalYear} onAssign={gotoAssign} onCourse={(id) => { setCurrentCourseId(id); setCurrentPage('course-detail'); }} calEvents={calEvents} />}
-              {currentPage === 'submitted' && <SubmittedView assignments={assignments} onAssign={gotoAssign} />}
+              {currentPage === 'calendar' && <CalendarView calMonth={calMonth} calYear={calYear} setCalMonth={setCalMonth} setCalYear={setCalYear} onAssign={(id: string) => gotoAssign(id, 'calendar')} onCourse={(id: string) => { setCurrentCourseId(id); setCurrentPage('course-detail'); }} calEvents={calEvents} assignments={assignments} />}
+              {currentPage === 'submitted' && <SubmittedView assignments={assignments} onAssign={(id: string) => gotoAssign(id, 'submitted')} />}
               {currentPage === 'profile' && <ProfileView user={user} assignments={assignments} onLogout={() => toggleModal('logout', true)} onPage={gotoPage} />}
               {currentPage === 'assign-detail' && (
                 <AssignDetailView 
@@ -209,7 +213,7 @@ export default function App() {
                   onUndo={doUndoSubmission}
                 />
               )}
-              {currentPage === 'course-detail' && <CourseDetailView course={COURSES[currentCourseId]} assignments={assignments} onAssign={gotoAssign} />}
+              {currentPage === 'course-detail' && <CourseDetailView course={COURSES[currentCourseId]} assignments={assignments} onAssign={(id: string) => gotoAssign(id, 'course-detail')} />}
               {currentPage === 'ai' && <AIChatView user={user} assignments={assignments} />}
             </main>
 
@@ -645,7 +649,7 @@ function CoursesView({ assignments, onCourse }: { assignments: Record<string, As
   );
 }
 
-function CalendarView({ calMonth, calYear, setCalMonth, setCalYear, onAssign, onCourse, calEvents }: any) {
+function CalendarView({ calMonth, calYear, setCalMonth, setCalYear, onAssign, onCourse, calEvents, assignments }: any) {
   const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
   const SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   const TODAY = new Date(2026, 1, 19);
@@ -672,6 +676,13 @@ function CalendarView({ calMonth, calYear, setCalMonth, setCalYear, onAssign, on
   for (let d = 1; d <= daysInMonth; d++) {
     const k = `${calYear}-${calMonth}-${d}`;
     const ev = calEvents[k] || [];
+    const filteredEv = ev.filter((e: any) => {
+      if (e.aid) {
+        const assign = assignments[e.aid];
+        return assign && assign.status === 'open';
+      }
+      return true;
+    });
     const isToday = d === TODAY.getDate() && calMonth === TODAY.getMonth() && calYear === TODAY.getFullYear();
     
     days.push(
@@ -684,9 +695,9 @@ function CalendarView({ calMonth, calYear, setCalMonth, setCalYear, onAssign, on
       >
         {d}
         <div className="flex gap-0.5 absolute bottom-1.5">
-          {ev.some(e => e.type === 'assign') && <div className="w-1 h-1 rounded-full bg-warning" />}
-          {ev.some(e => e.type === 'midterm') && <div className="w-1 h-1 rounded-full bg-info" />}
-          {ev.some(e => e.type === 'exam') && <div className="w-1 h-1 rounded-full bg-danger" />}
+          {filteredEv.some((e: any) => e.type === 'assign') && <div className="w-1 h-1 rounded-full bg-warning" />}
+          {filteredEv.some((e: any) => e.type === 'midterm') && <div className="w-1 h-1 rounded-full bg-info" />}
+          {filteredEv.some((e: any) => e.type === 'exam') && <div className="w-1 h-1 rounded-full bg-danger" />}
         </div>
       </div>
     );
@@ -721,19 +732,28 @@ function CalendarView({ calMonth, calYear, setCalMonth, setCalYear, onAssign, on
           {Array.from({ length: daysInMonth }).map((_, i) => {
             const d = i + 1;
             const k = `${calYear}-${calMonth}-${d}`;
-            const evs = calEvents[k] || [];
-            return evs.map((e, idx) => (
+            const evs = (calEvents[k] || []).filter((e: any) => {
+              if (e.aid) {
+                const assign = assignments[e.aid];
+                return assign && assign.status === 'open';
+              }
+              return true;
+            });
+            return evs.map((e: any, idx: number) => (
               <div 
                 key={`${k}-${idx}`} 
                 className="flex items-center gap-3 cursor-pointer group"
                 onClick={() => e.aid ? onAssign(e.aid) : e.cid ? onCourse(e.cid) : null}
               >
                 <div className={cn("w-3 h-3 rounded flex-shrink-0", e.type === 'midterm' ? 'bg-info' : e.type === 'exam' ? 'bg-danger' : 'bg-warning')} />
-                <div className="flex-1">
-                  <p className="text-sm font-semibold group-hover:text-primary transition-colors">{e.name}</p>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold group-hover:text-primary transition-colors truncate">{e.name}</p>
                   <p className="text-[11px] text-text-muted">{SHORT[calMonth]} {d}, {calYear}</p>
                 </div>
-                <ChevronRight size={16} className="text-text-light" />
+                {e.type === 'assign' && (
+                  <div className="bg-danger text-white text-[9px] font-bold px-2 py-0.5 rounded-full uppercase">Submit</div>
+                )}
+                <ChevronRight size={16} className="text-text-light flex-shrink-0" />
               </div>
             ));
           })}
@@ -921,7 +941,7 @@ function AssignDetailView({ assignment, onFileSelect, selFile, onSubmit, lastSub
               <FileText size={14} /> {assignment.file}
             </div>
           )}
-          {lastSubmission?.id === assignment.id && (
+          {isS && (
             <button 
               onClick={onUndo}
               className="mt-6 w-full py-3 border-2 border-border rounded-xl text-sm font-bold text-text-muted hover:bg-bg transition-colors flex items-center justify-center gap-2"
@@ -1064,7 +1084,6 @@ function AIChatView({ user, assignments }: any) {
   const [messages, setMessages] = useState<any[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
-  const [chatMode, setChatMode] = useState<'assignment' | 'study' | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -1091,6 +1110,11 @@ function AIChatView({ user, assignments }: any) {
     }
   };
 
+  const QUICK_REPLIES = [
+    { label: "Assignment Planning", queries: ["next deadline", "plan my week", "how many assignments"] },
+    { label: "Study Assistance", queries: ["study tips", "calculate grade", "summarize studies"] }
+  ];
+
   return (
     <div className="flex flex-col h-[calc(100vh-12rem)]">
       <div className="flex items-center justify-between mb-4">
@@ -1113,56 +1137,27 @@ function AIChatView({ user, assignments }: any) {
               <Sparkles size={32} />
             </div>
             <h3 className="text-lg font-display font-bold">StudyFlow AI</h3>
-            <p className="text-sm text-text-muted mt-2 mb-6 px-4">Hello! I'm your academic assistant. To get started, please choose a mode:</p>
+            <p className="text-sm text-text-muted mt-2 mb-6 px-4">Hello! I'm your academic assistant. How can I help you today?</p>
             
-            {!chatMode ? (
-              <div className="grid grid-cols-2 gap-3 px-4">
-                <button 
-                  onClick={() => setChatMode('assignment')}
-                  className="flex flex-col items-center gap-3 p-6 bg-white border-2 border-border rounded-2xl hover:border-primary hover:bg-primary-pale transition-all group"
-                >
-                  <div className="w-12 h-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center group-hover:scale-110 transition-transform">
-                    <ClipboardList size={24} />
+            <div className="px-4 space-y-6">
+              {QUICK_REPLIES.map((group, idx) => (
+                <div key={idx} className="space-y-3">
+                  <p className="text-[10px] font-bold text-text-muted uppercase tracking-widest text-left pl-1">{group.label}</p>
+                  <div className="flex flex-col gap-2">
+                    {group.queries.map(q => (
+                      <button 
+                        key={q}
+                        onClick={() => handleSend(q)}
+                        className="w-full px-4 py-3 bg-white border border-border rounded-xl text-left text-sm font-medium hover:border-primary group flex items-center justify-between transition-all"
+                      >
+                        <span className="group-hover:text-primary capitalize">{q}</span>
+                        <ChevronRight size={16} className="text-text-light group-hover:text-primary transition-colors" />
+                      </button>
+                    ))}
                   </div>
-                  <span className="font-bold text-sm">Assignment</span>
-                </button>
-                <button 
-                  onClick={() => setChatMode('study')}
-                  className="flex flex-col items-center gap-3 p-6 bg-white border-2 border-border rounded-2xl hover:border-primary hover:bg-primary-pale transition-all group"
-                >
-                  <div className="w-12 h-12 rounded-xl bg-accent/10 text-accent flex items-center justify-center group-hover:scale-110 transition-transform">
-                    <BookOpen size={24} />
-                  </div>
-                  <span className="font-bold text-sm">Study</span>
-                </button>
-              </div>
-            ) : (
-              <div className="px-4 space-y-4">
-                <div className="flex items-center justify-between">
-                  <p className="text-xs font-bold text-text-muted uppercase tracking-widest flex items-center gap-2">
-                    {chatMode === 'assignment' ? <ClipboardList size={14} className="text-primary" /> : <BookOpen size={14} className="text-accent" />}
-                    Selected Mode: {chatMode}
-                  </p>
-                  <button onClick={() => setChatMode(null)} className="text-[10px] font-bold text-primary hover:underline">Change Mode</button>
                 </div>
-                
-                <div className="flex flex-col gap-2">
-                  {(chatMode === 'assignment' 
-                    ? ["what is my next deadline", "Help me plan my week", "how many assignments are left in subject"]
-                    : ["study tip", "calculate estimated grade( based on score the student provide)", "summarize"]
-                  ).map(q => (
-                    <button 
-                      key={q}
-                      onClick={() => handleSend(q)}
-                      className="w-full px-4 py-3 bg-white border border-border rounded-xl text-left text-sm font-medium hover:border-primary group flex items-center justify-between transition-all"
-                    >
-                      <span className="group-hover:text-primary">{q}</span>
-                      <ChevronRight size={16} className="text-text-light group-hover:text-primary transition-colors" />
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
+              ))}
+            </div>
           </div>
         ) : (
           <>
@@ -1171,7 +1166,7 @@ function AIChatView({ user, assignments }: any) {
                 <div className={cn("w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0", m.role === 'user' ? "bg-primary text-white" : "bg-accent text-white")}>
                   {m.role === 'user' ? <UserIcon size={16} /> : <Sparkles size={16} />}
                 </div>
-                <div className={cn("max-w-[80%] p-4 rounded-2xl text-sm leading-relaxed", m.role === 'user' ? "bg-primary text-white rounded-tr-none" : "bg-white shadow-sm border border-border rounded-tl-none")}>
+                <div className={cn("max-w-[80%] p-4 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap", m.role === 'user' ? "bg-primary text-white rounded-tr-none" : "bg-white shadow-sm border border-border rounded-tl-none")}>
                   {m.content}
                 </div>
               </div>
