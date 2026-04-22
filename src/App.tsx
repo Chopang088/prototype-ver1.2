@@ -1090,16 +1090,20 @@ function AIChatView({ user, assignments }: any) {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [messages]);
 
-  const handleSend = async (overrideMsg?: string) => {
-    const textToSend = overrideMsg || input;
-    if (!textToSend.trim() || loading) return;
-    const userMsg = { role: 'user', content: textToSend };
+  const handleSend = async (overrideMsg?: any) => {
+    // If overrideMsg is a string (Quick Reply), use it. 
+    // Otherwise (Event or undefined), use the input state.
+    const textToSend = typeof overrideMsg === 'string' ? overrideMsg : input;
+    
+    if (!textToSend || typeof textToSend !== 'string' || !textToSend.trim() || loading) return;
+    
+    const userMsg = { role: 'user', content: textToSend.trim() };
     setMessages(prev => [...prev, userMsg]);
     setInput('');
     setLoading(true);
     
     try {
-      const response = await aiService.sendMessage(textToSend, { user, assignments, courses: COURSES });
+      const response = await aiService.sendMessage(textToSend.trim(), { user, assignments, courses: COURSES });
       const botMsg = { role: 'bot', content: response };
       setMessages(prev => [...prev, botMsg]);
     } catch (error) {
@@ -1116,7 +1120,7 @@ function AIChatView({ user, assignments }: any) {
   ];
 
   return (
-    <div className="flex flex-col h-[calc(100vh-12rem)]">
+    <div className="flex flex-col h-[calc(100dvh-12rem)] min-h-[400px]">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <div className="w-2 h-2 rounded-full bg-success animate-pulse" />
@@ -1147,6 +1151,7 @@ function AIChatView({ user, assignments }: any) {
                     {group.queries.map(q => (
                       <button 
                         key={q}
+                        type="button"
                         onClick={() => handleSend(q)}
                         className="w-full px-4 py-3 bg-white border border-border rounded-xl text-left text-sm font-medium hover:border-primary group flex items-center justify-between transition-all"
                       >
@@ -1187,19 +1192,26 @@ function AIChatView({ user, assignments }: any) {
         )}
       </div>
 
-      <div className="mt-4 flex gap-2">
+      <div className="mt-4 flex gap-2 items-end">
         <textarea 
-          className="flex-1 bg-white border-2 border-border rounded-2xl px-4 py-3 text-sm outline-none focus:border-primary transition-colors resize-none"
+          className="flex-1 bg-white border-2 border-border rounded-2xl px-4 py-3 text-sm outline-none focus:border-primary transition-colors resize-none overflow-hidden"
           placeholder="Ask anything..."
           rows={1}
+          enterKeyHint="send"
           value={input}
           onChange={e => setInput(e.target.value)}
-          onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
+          onKeyDown={e => { 
+            if (e.key === 'Enter' && !e.shiftKey) { 
+              e.preventDefault(); 
+              handleSend(); 
+            } 
+          }}
           disabled={loading}
         />
         <button 
-          className="w-12 h-12 bg-primary text-white rounded-full flex items-center justify-center shadow-lg active:scale-95 transition-transform disabled:opacity-50"
-          onClick={handleSend}
+          type="button"
+          className="w-12 h-12 bg-primary text-white rounded-full flex items-center justify-center shadow-lg active:scale-95 transition-transform disabled:opacity-50 flex-shrink-0"
+          onClick={() => handleSend()}
           disabled={loading || !input.trim()}
         >
           <Send size={20} />
